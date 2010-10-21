@@ -235,12 +235,12 @@ class MainFrame(wx.Frame):
 
 
     def EditCopy(self, event):
-        self.Info(self, 'This feature is not implemented yet')
+        self.Info(self, 'You chose Edit->Copy')
     def EditPaste(self, event):
-        self.Info(self, 'This feature is not implemented yet')
+        self.Info(self, 'You chose Edit->Paste')
     def DataBox(self, num, event):
-        self.Info(self, 'This feature is not implemented yet %s' % (num,))
-    def Info(self, parent, message, caption = 'Not implemented yet'):
+        self.Info(self, 'You chose item %d' % (num,))
+    def Info(self, parent, message, caption = 'Better Menus'):
         dlg = wx.MessageDialog(parent, message, caption, \
             wx.OK | wx.ICON_INFORMATION)
         dlg.ShowModal()
@@ -287,19 +287,16 @@ class MainFrame(wx.Frame):
 
 
 if __name__ == "__main__":
+    apimanager.clean_tmp() #sometimes are problems with file handling between 
+                           #python and GPEC at the same time. Trying a magic clean-up
+
 
     all_plots = {}
-
     def add_plot_instance(message):
         all_plots[message.data[0]] = message.data[1]
 
-    def remove_plot_instance(message):
-        if message.data in all_plots:
-            all_plots.pop(message.data)
-
-
-    #pub.subscribe(add_plot_instance, 'add_plot_instance')
-    #pub.subscribe(remove_plot_instance, 'remove_plot_instance')
+    pub.subscribe(add_plot_instance, 'add_plot_instance')
+    
     
     app = wx.PySimpleApp(0)
     wx.InitAllImageHandlers()

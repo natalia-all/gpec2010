@@ -1,26 +1,27 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import re
 import string
 import os
 import sys
-import subprocess
+
 import cStringIO #for memory files
 
-import numpy as np
-from wx.lib.pubsub import Publisher as pub
 
 from tools import killableprocess, misc
-from settings import PATH_BIN, TIMEOUT, PATH_TEMP, BIN_AVAILABLE
+import subprocess
 
+from settings import PATH_BIN, TIMEOUT, PATH_TEMP, BIN_AVAILABLE
+import numpy as np
+
+from wx.lib.pubsub import Publisher as pub
 
 
 
 
 def clean_tmp():
     """auxiliary function to clean all temporary files/dirs"""
-
     def rm_content(path):
         for the_file in os.listdir(path):
             file_path = os.path.join(path, the_file)
@@ -78,14 +79,11 @@ class ApiManager():
             
             args.append( os.path.join(PATH_BIN, bin + '.exe'))
 
-            try:
-                proc = killableprocess.Popen(args, cwd=self.path_temp)  #kill if not return in TIMEOUT seconds
-                ret = proc.wait(TIMEOUT)      #proc.communicate()[0]
-            except AttributeError:
-                #on windows 64bits, killableprocess not works
-                proc = subprocess.Popen(args, cwd=self.path_temp)  #kill if not return in TIMEOUT seconds
-                ret = proc.wait()
-                
+            
+            proc = killableprocess.Popen(args, cwd=self.path_temp)  #kill if not return in TIMEOUT seconds
+            
+            ret = proc.wait(TIMEOUT)  #proc.communicate()[0]
+
             pub.sendMessage('log', ('ok', '%s executed' % bin))
 
             for out in BIN_AVAILABLE[bin]['out']:

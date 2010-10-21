@@ -2,10 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 
-import os 
-import sys
-import tempfile
-
+import os, sys
 
 
 PATH_BIN = os.path.join( os.getcwd(), "bin" ) #path where fortran executables are
@@ -13,7 +10,7 @@ PATH_BIN = os.path.join( os.getcwd(), "bin" ) #path where fortran executables ar
 work_in_memory = False       #if temporary files are written to memory. 
   
 
-PATH_TEMP = tempfile.mkdtemp(prefix="gpec_")
+PATH_TEMP = os.path.join( os.getcwd(), "tmp" )   
 PATH_ICONS = os.path.join( os.getcwd(), "icons" )
 
 

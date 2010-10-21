@@ -1,34 +1,50 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
-#standard library
 import os
 import time
 import sys
+
 import pickle #cPickle as pickle
 
+#WX
+import wx
+import wx.aui
 
-#3th party
 import wx.lib.agw.aui as aui
+import wx.lib.customtreectrl 
+
+import wx.lib.buttons
 import ui.widgets
 import ui.PyCollapsiblePane as pycp
-from wx.lib.embeddedimage import PyEmbeddedImage
-from wx.lib.pubsub import Publisher as pub
-import wx.lib.scrolledpanel as scrolled
-import wx.lib.customtreectrl 
-import wx.lib.buttons
+
+import apimanager
+import crud
+
+import  wx.lib.scrolledpanel as scrolled
+
+
+
+
+from settings import PATH_ICONS, EOS, EOS_SHORT, INV_EOS, VC_RATIO_DEFAULT, PLOT_SUITES, PLOT_IN_3D, IPYTHON_CONSOLE
+
+from tools.misc import Counter, ch_val2pos
 
 import matplotlib
 matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx as NavigationToolbar
 
-# gpec modules
-import apimanager
-import crud
-from settings import PATH_ICONS, EOS, EOS_SHORT, INV_EOS, VC_RATIO_DEFAULT, PLOT_SUITES, PLOT_IN_3D, IPYTHON_CONSOLE
-from tools.misc import Counter, ch_val2pos
+#pubsub
+from wx.lib.pubsub import Publisher as pub
+
+#plots
 import plots
+
+
+from wx.lib.embeddedimage import PyEmbeddedImage
+
+
+
 
 
 
@@ -138,7 +154,7 @@ class SuitePlotsPanel(wx.Panel):
 
     def __init__(self, parent, id):
         wx.Panel.__init__(self, parent, id)
-        self.nb = aui.AuiNotebook(self, style= aui.AUI_NB_DEFAULT_STYLE) # ^ aui.AUI_NB_CLOSE_ON_ACTIVE_TAB)
+        self.nb = aui.AuiNotebook(self, style= wx.aui.AUI_NB_DEFAULT_STYLE) # ^ wx.aui.AUI_NB_CLOSE_ON_ACTIVE_TAB)
 
 
         #pub.subscribe(self.OnAddPlot, 'plot.PT')
@@ -150,10 +166,8 @@ class SuitePlotsPanel(wx.Panel):
                 
         pub.subscribe(self.MakePlots, 'make') #for all kind of suites
         pub.subscribe(self.MakeCustomPlot, 'make_custom') #for all kind of suites
-        
         pub.subscribe(self.HidePage, 'hide page') #from checkbox tree
         pub.subscribe(self.ShowPage, 'show page') #from checkbox tree
-        pub.subscribe(self.DeletePage, 'delete page') #from checkbox tree
         pub.subscribe(self.ActivePage, 'active page') #when an item is selected 
 
         self.Bind(aui.EVT_AUINOTEBOOK_PAGE_CLOSE, self.OnPageClosing, self.nb)
@@ -202,17 +216,13 @@ class SuitePlotsPanel(wx.Panel):
 
     def HidePage(self, message):
         """close page which window is named as message.data and put in hidden_page"""
-
-        
         window = wx.FindWindowByName(message.data)
         page_id = self.nb.GetPageIndex(window)
 
-        
         self.hidden_page[message.data] = (window, self.nb.GetPageText(page_id))        
+
         self.nb.RemovePage(page_id)
         window.Hide()
-    
-            
         
     def ShowPage(self, message):
         try: 
@@ -222,22 +232,7 @@ class SuitePlotsPanel(wx.Panel):
         except KeyError:
             print "key  error ", message.topic, message.data
 
-    def DeletePage(self, message):
-        """remove a plot page including its plot panel """
         
-        window = wx.FindWindowByName(message.data)
-        page_id = self.nb.GetPageIndex(window)
-
-        if message.data in self.hidden_page:
-            self.hidden_page.pop(message.data)
-
-        pub.sendMessage('remove_plot_instance', message.data)
-
-        try:
-            self.nb.RemovePage(page_id)
-            window.Destroy()        #TODO check this silent !
-        except:
-            pass
 
     def MakePlots(self, message):
         
@@ -493,21 +488,7 @@ class VarsAndParamPanel(wx.Panel):
 
     def SetData(self, data):
         """Set basic compound data on the panel"""
-
-
-        if isinstance(data[-1], dict):
-            #necessary to work whidt thre original value. 
-            #this need a lot of testing 
-
-            self.vc_back = data[-1]['vc_back']
-            if 'vc_ratio' in data[-1]: 
-                self.vc_ratio = data[-1]['vc_ratio']
-            data[4] = self.vc_back
-            data = data[:-1]
-        else: 
-            #data come from database
-            self.vc_back = data[4] #save original value
-
+    
         self.setup_data = data
 
         self.compound_id = int(data[0])
@@ -523,18 +504,10 @@ class VarsAndParamPanel(wx.Panel):
     def GetData(self):
         """Return a compound list [id, name, vars...]   useful to redefine the system"""
         if self.setup_data:
-            r =  [self.compound_id, self.compound_name] + self.GetVarsValues()
-
-            if hasattr(self, 'vc_ratio'):  
-                r += [{'vc_ratio': self.vc_ratio, 'vc_back': self.vc_back if hasattr(self, 'vc_back') else float(r[-2]) }]
-            else:
-                r += [{'vc_back': self.vc_back if hasattr(self, 'vc_back') else float(r[-2]) }]
-        
-
-            return r
+            return [self.compound_id, self.compound_name] + self.GetVarsValues()
 
     def GetTotalData(self):
-        """Return a compound list tuple (name, (vars...), (param...) )"""
+        """Return a compound list tuple (name, (vars...), (param...), (vc_ratio, vc_bak) )"""
 
         if self.OnButton(None) == True: #Ensure last numbers generating (as a programatical event)
                 
@@ -579,14 +552,13 @@ class VarsAndParamPanel(wx.Panel):
             return [float(box.GetValue()) for box in self.vars]
 
     def SetVarsValues(self, data):
-        
         try:
-            for box, data_c in zip(self.vars, data):
+            for box, data in zip(self.vars, data):
                 #on PC-SAFT and SPHCT om is 0.0 in CONPAOUT and should be ignored. 
-                if float(data_c) != 0.0:
-                    box.SetValue(str(data_c))
+                if float(data) != 0.0:
+                    box.SetValue(str(data))
         except:
-            pub.sendMessage('log', ('error',  "not enough data or boxes for compounds vars"))
+            pub.sendMessage('log', ('error',  "not enough data or boxes for EOS vars"))
             
             
 
@@ -598,13 +570,11 @@ class VarsAndParamPanel(wx.Panel):
 
 
     def SetParamsValues(self, data):
-
-
         if len(data) == len(self.params):
             for box, data in zip(self.params, data):
                 box.SetValue(str(data))
         else:
-            pub.sendMessage('log', ('error',  "not enough data or boxes for EOS parameter"))
+            pub.sendMessage('log', ('error',  "not enough data or boxes for EOS vars"))
             
             
                 
@@ -661,7 +631,6 @@ class VarsAndParamPanel(wx.Panel):
             self.SetVarsValues(data[0])
             self.SetParamsValues(data[1])
             return True
-
         else:
             pub.sendMessage('log',("error", "Error handling ModelsParam output. Upcoming calculations aborted."))
             return False
@@ -844,7 +813,7 @@ class TabbedCases(wx.Panel):
 
     def __init__(self, parent, id):
         wx.Panel.__init__(self, parent, id)
-        self.nb = aui.AuiNotebook(self, style = aui.AUI_NB_TOP )
+        self.nb = wx.aui.AuiNotebook(self, style = wx.aui.AUI_NB_TOP )
         
         
 
@@ -852,8 +821,8 @@ class TabbedCases(wx.Panel):
 
         self.AddNewCaseButton() #the last `+` page
 
-        self.Bind(aui.EVT_AUINOTEBOOK_PAGE_CHANGED, self.onPageChange, self.nb)
-        self.Bind(aui.EVT_AUINOTEBOOK_PAGE_CLOSED, self.onPageClose, self.nb) #TODO
+        self.Bind(wx.aui.EVT_AUINOTEBOOK_PAGE_CHANGED, self.onPageChange, self.nb)
+        self.Bind(wx.aui.EVT_AUINOTEBOOK_PAGE_CLOSED, self.onPageClose, self.nb) #TODO
 
         sizer = wx.BoxSizer()
         sizer.Add(self.nb, 1, wx.EXPAND)
@@ -1342,7 +1311,7 @@ class CasePanel(scrolled.ScrolledPanel):
             
             if self.model_id == 3:  #on RK-PR add vc_ratio parameter
                 #TODO this fail on loaded RKPR case.
-                kwargs = {'vc_rat1': self.panels[0].vc_ratio or 1.168, 'vc_rat2': self.panels[1].vc_ratio or 1.168}
+                kwargs = {'vc_rat1': self.panels[0].vc_ratio, 'vc_rat2': self.panels[1].vc_ratio}
             else:
                 kwargs = {}
 
@@ -1415,7 +1384,7 @@ class InfoPanel(wx.Panel):
 
     def __init__(self, parent, id):
         wx.Panel.__init__(self, parent, id)
-        self.nb = aui.AuiNotebook(self, style=aui.AUI_NB_TOP | aui.AUI_NB_TAB_SPLIT )
+        self.nb = wx.aui.AuiNotebook(self, style=aui.AUI_NB_TOP | aui.AUI_NB_TAB_SPLIT )
 
 
 
@@ -1438,7 +1407,7 @@ class InfoPanel(wx.Panel):
         self.SetSizerAndFit(sizer)
 
         
-        #self.Bind(aui.EVT_AUINOTEBOOK_BUTTON, self.onPageChange)
+        #self.Bind(wx.aui.EVT_AUINOTEBOOK_BUTTON, self.onPageChange)
 
         
         
@@ -1471,20 +1440,16 @@ class PlotsTreePanel(wx.Panel):
     
 
         pub.subscribe(self.AddCheckboxItem, 'add checkbox')
-
-        
         pub.subscribe(self.UncheckItem, 'uncheck item')
         pub.subscribe(self.SelectItem, 'select item')
 
         self.Bind(wx.EVT_TREE_SEL_CHANGED, self.OnTreeSelChanged, self.tree)
 
         self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.OnBeginDrag, self.tree)
-
-        self.Bind(wx.EVT_TREE_DELETE_ITEM, self.OnDeleteItem, self.tree)
-
+    
         self.Bind(wx.EVT_TREE_END_DRAG, self.OnEndDrag, self.tree)
 
-    
+
     def OnBeginDrag(self, event):
         item = event.GetItem()
         
@@ -1565,7 +1530,7 @@ class PlotsTreePanel(wx.Panel):
          |   
          |__ 3D
             |__ PTrho
-            |   |___ PT         #TODO
+            |   |___ Global
             |   |___ Isop
             |   |___ Txy
             |
@@ -1643,26 +1608,6 @@ class PlotsTreePanel(wx.Panel):
 
         self.Bind(wx.lib.customtreectrl.EVT_TREE_ITEM_CHECKED, self.OnItemChecked, self.tree)
 
-
-    def OnDeleteItem(self, event):
-
-        def remove_panel_name (item):
-            self.tree.GetPyData(item)
-            panel_name = get_panel_name(item)
-
-            if panel_name:
-                pub.sendMessage('delete page', panel_name)
-                self.tree.Delete(item)
-            else:
-                (child, cookie) = self.tree.GetFirstChild(item)
-                while child:
-                    remove_panel_name(child)
-                    (child, cookie) = self.tree.GetNextChild(item, cookie)
-
-        item = event.GetItem()
-        remove_panel_name (item)
-
-
     def OnItemChecked(self, event):
         item = event.GetItem()
         panel_name = self.tree.GetPyData(item)
@@ -1670,9 +1615,9 @@ class PlotsTreePanel(wx.Panel):
         
         checked = self.tree.IsItemChecked(item)
 
-        
 
-        if panel_name: # means it's a child 
+        if panel_name: 
+            # means it's a child 
             if checked:
                 pub.sendMessage('show page', panel_name)
             else:
