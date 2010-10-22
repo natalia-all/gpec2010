@@ -1,0 +1,14 @@
+#labels Featured
+==Figures are exported from GPEC==
+
+http://gpec2010.googlecode.com/svn/trunk/docs/poster/img/CO2-Etano.png
+
+http://gpec2010.googlecode.com/svn/trunk/docs/poster/img/co2+ntri.png
+
+http://code.google.com/p/gpec2010/source/browse/trunk/docs/poster/img/meth-eth3d.png
+
+http://code.google.com/p/gpec2010/source/browse/trunk/docs/poster/img/eth-meth.png
+
+==Screenshot==
+
+http://code.google.com/p/gpec2010/source/browse/trunk/docs/poster/img/meth-carb.png
